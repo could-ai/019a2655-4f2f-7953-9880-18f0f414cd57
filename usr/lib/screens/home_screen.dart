@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:couldai_user_app/services/scanner_service.dart';
 import 'package:couldai_user_app/models/analysis_result.dart';
+import 'package:couldai_user_app/services/pdf_service.dart';
+import 'package:printing/printing.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,6 +14,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _urlController = TextEditingController();
   final ScannerService _scannerService = ScannerService();
+  final PdfService _pdfService = PdfService();
   AnalysisResult? _analysisResult;
   bool _isLoading = false;
   String? _error;
@@ -46,6 +49,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _exportToPdf() async {
+    if (_analysisResult == null) return;
+    final pdfBytes = await _pdfService.generatePdf(_analysisResult!);
+    await Printing.layoutPdf(onLayout: (format) async => pdfBytes);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -75,8 +84,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   : const Text('Analyze'),
             ),
             const SizedBox(height: 24.0),
-            if (_analysisResult != null)
+            if (_analysisResult != null) ...[
               _buildResults(_analysisResult!),
+              const SizedBox(height: 16.0),
+              ElevatedButton(
+                onPressed: _exportToPdf,
+                child: const Text('Export to PDF'),
+              ),
+            ]
           ],
         ),
       ),
@@ -90,6 +105,13 @@ class _HomeScreenState extends State<HomeScreen> {
         Text(
           'Analysis Results for: ${result.url}',
           style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 16),
+        _buildResultCard(
+          'AI-Powered Summary & Recommendations',
+          {'Executive Summary': result.aiSummary},
+          icon: Icons.auto_awesome,
+          iconColor: Colors.amber,
         ),
         const SizedBox(height: 16),
         _buildResultCard(
@@ -110,16 +132,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildResultCard(String title, Map<String, String> data) {
+  Widget _buildResultCard(String title, Map<String, String> data, {IconData? icon, Color? iconColor}) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium,
+            Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, color: iconColor),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
             ),
             const Divider(height: 20),
             if (data.isEmpty)
